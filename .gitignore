@@ -1,0 +1,47 @@
+# Arquivos compilados
+*.class
+*.jar
+*.war
+*.ear
+
+# Arquivos de build
+target/
+build/
+out/
+
+# Arquivos de IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Arquivos de log
+*.log
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos de configuração local
+passwords.json
+master_password.json
+
+# Arquivos de dependências
+node_modules/
+
+# Arquivos de senha e chaves
+*.key
+*.pem
+*.keystore
+*.jks
+
+# Arquivos de backup
+*.bak
+*.backup
+*~
+
+# Arquivos de configuração local
+application.properties
+application-local.properties 
