@@ -12,6 +12,7 @@ public class PasswordEntry {
     private String service;
     private String username;
     private String password;
+    private String userId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -20,10 +21,11 @@ public class PasswordEntry {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public PasswordEntry(String service, String username, String password) {
+    public PasswordEntry(String service, String username, String password, String userId) {
         this.service = service;
         this.username = username;
         this.password = password;
+        this.userId = userId;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
@@ -68,6 +70,14 @@ public class PasswordEntry {
     public void setPassword(String password) {
         this.password = password;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public LocalDateTime getCreatedAt() {
