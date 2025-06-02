@@ -1,74 +1,46 @@
 package com.securepassmanager.security;
 
-import javax.mail.*;
-import javax.mail.internet.*;
-import java.util.Properties;
-import java.util.Random;
+import com.warrenstrange.googleauth.GoogleAuthenticator;
+import com.warrenstrange.googleauth.GoogleAuthenticatorKey;
+import com.warrenstrange.googleauth.GoogleAuthenticatorQRGenerator;
+
+import java.util.Scanner;
 
 /**
- * Implementação da autenticação de dois fatores (2FA) usando Google Authenticator e email.
+ * Implementação da autenticação de dois fatores (2FA) usando Google Authenticator (TOTP).
  */
 public class TwoFactorAuth {
-    private final String email;
-    private final String password;
-    private final String smtpHost;
-    private final int smtpPort;
+    private final GoogleAuthenticator gAuth;
+    private final String secret;
 
-    public TwoFactorAuth(String email, String password, String smtpHost, int smtpPort) {
-        this.email = email;
-        this.password = password;
-        this.smtpHost = smtpHost;
-        this.smtpPort = smtpPort;
+    public TwoFactorAuth() {
+        this.gAuth = new GoogleAuthenticator();
+        // Gera uma nova chave secreta para o usuário (ideal: salvar/recuperar do banco)
+        GoogleAuthenticatorKey key = gAuth.createCredentials();
+        this.secret = key.getKey();
+        System.out.println("Escaneie este QR Code no seu app autenticador:");
+        String qr = GoogleAuthenticatorQRGenerator.getOtpAuthURL("SecurePassManager", "usuario", key);
+        System.out.println(qr);
+    }
+
+    public TwoFactorAuth(String secret) {
+        this.gAuth = new GoogleAuthenticator();
+        this.secret = secret;
     }
 
     public boolean verifyCode() {
+        System.out.print("Digite o código do seu app autenticador: ");
+        String inputCode = new Scanner(System.in).nextLine();
         try {
-            // Gera um código de 6 dígitos
-            String code = generateCode();
-            
-            // Envia o código por email
-            sendVerificationEmail(code);
-            
-            // Solicita o código ao usuário
-            System.out.print("Digite o código de verificação enviado para seu email: ");
-            String inputCode = new java.util.Scanner(System.in).nextLine();
-            
-            return code.equals(inputCode);
-        } catch (Exception e) {
-            System.err.println("Erro na autenticação de dois fatores: " + e.getMessage());
+            int code = Integer.parseInt(inputCode);
+            return gAuth.authorize(secret, code);
+        } catch (NumberFormatException e) {
+            System.out.println("Código inválido!");
             return false;
         }
     }
 
-    private String generateCode() {
-        Random random = new Random();
-        StringBuilder code = new StringBuilder();
-        for (int i = 0; i < 6; i++) {
-            code.append(random.nextInt(10));
-        }
-        return code.toString();
-    }
-
-    private void sendVerificationEmail(String code) throws MessagingException {
-        Properties props = new Properties();
-        props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.host", smtpHost);
-        props.put("mail.smtp.port", smtpPort);
-
-        Session session = Session.getInstance(props, new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(email, password);
-            }
-        });
-
-        Message message = new MimeMessage(session);
-        message.setFrom(new InternetAddress(email));
-        message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(email));
-        message.setSubject("Código de Verificação - SecurePassManager");
-        message.setText("Seu código de verificação é: " + code);
-
-        Transport.send(message);
+    public String getSecret() {
+        return secret;
     }
 } 
