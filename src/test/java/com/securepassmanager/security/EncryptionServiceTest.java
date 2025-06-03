@@ -11,7 +11,7 @@ class EncryptionServiceTest {
     void setUp() throws Exception {
         encryptionService = new EncryptionService();
     }
-
+    //O snyk acusou vulnerabilidades nessa parte do teste, mas são apenas testes unitarios 
     @Test
     void testEncryptAndDecrypt() throws Exception {
         String originalPassword = "TestPassword123!";
