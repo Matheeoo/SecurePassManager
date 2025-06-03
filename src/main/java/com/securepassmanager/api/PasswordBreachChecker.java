@@ -48,7 +48,7 @@ public class PasswordBreachChecker {
      * Gera o hash SHA-1 de uma senha.
      */
     private String getSHA1Hash(String password) throws NoSuchAlgorithmException {
-        MessageDigest digest = MessageDigest.getInstance("SHA-1");
+        MessageDigest digest = MessageDigest.getInstance("SHA-512");
         byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
         return bytesToHex(hash);
     }
