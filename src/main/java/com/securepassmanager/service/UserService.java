@@ -5,6 +5,8 @@ import com.mongodb.client.model.Filters;
 import com.securepassmanager.model.User;
 import org.bson.Document;
 import org.bson.types.ObjectId;
+import java.util.List;
+import java.util.ArrayList;
 
 public class UserService {
     private static final String CONNECTION_STRING = "mongodb://localhost:27017";
@@ -25,7 +27,8 @@ public class UserService {
         Document doc = new Document()
                 .append("email", user.getEmail())
                 .append("passwordHash", user.getPasswordHash())
-                .append("totpSecret", user.getTotpSecret());
+                .append("totpSecret", user.getTotpSecret())
+                .append("backupCodes", user.getBackupCodes());
         collection.insertOne(doc);
         user.setId(doc.getObjectId("_id").toHexString());
     }
@@ -38,9 +41,30 @@ public class UserService {
             user.setEmail(doc.getString("email"));
             user.setPasswordHash(doc.getString("passwordHash"));
             user.setTotpSecret(doc.getString("totpSecret"));
+            List<String> codes = new ArrayList<>();
+            if (doc.get("backupCodes") instanceof List<?>) {
+                for (Object o : (List<?>) doc.get("backupCodes")) {
+                    if (o != null) codes.add(o.toString());
+                }
+            }
+            user.setBackupCodes(codes);
             return user;
         }
         return null;
+    }
+
+    public void updateUser(User user) {
+        if (user.getId() == null) {
+            throw new IllegalArgumentException("Usuário sem ID não pode ser atualizado");
+        }
+        collection.updateOne(
+            Filters.eq("_id", new ObjectId(user.getId())),
+            new Document("$set", new Document()
+                .append("passwordHash", user.getPasswordHash())
+                .append("totpSecret", user.getTotpSecret())
+                .append("backupCodes", user.getBackupCodes())
+            )
+        );
     }
 
     public void close() {
