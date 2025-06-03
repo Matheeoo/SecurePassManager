@@ -7,8 +7,11 @@ import com.securepassmanager.security.PasswordBreachChecker;
 import com.securepassmanager.service.MongoDBService;
 import com.securepassmanager.model.User;
 import com.securepassmanager.service.UserService;
+import com.securepassmanager.service.SyncService;
 
 import java.util.Scanner;
+import java.util.regex.Pattern;
+import java.text.Normalizer;
 
 /**
  * Classe principal do aplicativo SecurePassManager.
@@ -24,6 +27,9 @@ public class Main {
     private static TwoFactorAuth twoFactorAuth;
     private static PasswordBreachChecker breachChecker;
     private static MongoDBService mongoDBService;
+    private static MongoDBService mongoDBServiceLocal;
+    private static MongoDBService mongoDBServiceCloud;
+    private static SyncService syncService;
     private static UserService userService;
     private static Scanner scanner;
     private static String masterPassword;
@@ -108,6 +114,16 @@ public class Main {
         breachChecker = new PasswordBreachChecker();
         mongoDBService = new MongoDBService();
         userService = new UserService();
+        // Inicializa serviços local e nuvem para sincronização
+        mongoDBServiceLocal = new MongoDBService() {
+            @Override
+            public boolean isCloudConnection() { return false; }
+        };
+        mongoDBServiceCloud = new MongoDBService() {
+            @Override
+            public boolean isCloudConnection() { return true; }
+        };
+        syncService = new SyncService(mongoDBServiceLocal, mongoDBServiceCloud);
     }
 
     private static void registerUser() {
@@ -117,6 +133,10 @@ public class Main {
             System.out.println("╚════════════════════════════════════╝");
             
             String email = getStringInput("Email: ");
+            if (!isValidEmail(email)) {
+                System.out.println("\n❌ E-mail inválido!");
+                return;
+            }
             String password = getPasswordInput("Senha mestra: ");
             String confirmPassword = getPasswordInput("Confirme a senha mestra: ");
 
@@ -230,6 +250,10 @@ public class Main {
             System.out.println("╚════════════════════════════════════╝");
             
             String email = getStringInput("Email: ");
+            if (!isValidEmail(email)) {
+                System.out.println("\n❌ E-mail inválido!");
+                return;
+            }
             String password = getPasswordInput("Senha mestra: ");
             
             User user = userService.findByEmail(email);
@@ -246,6 +270,12 @@ public class Main {
             // Inicializa 2FA com segredo e códigos de backup do usuário
             twoFactorAuth = new TwoFactorAuth(user.getTotpSecret(), user.getBackupCodes());
             
+            // Sincronização automática após login
+            if (mongoDBService.isCloudConnection()) {
+                System.out.println("\n🔄 Sincronizando dados entre local e nuvem...");
+                syncService.syncBidirectional(user.getId());
+            }
+
             System.out.println("\n╔════════════════════════════════════╗");
             System.out.println("║    Autenticação de Dois Fatores    ║");
             System.out.println("╠════════════════════════════════════╣");
@@ -312,7 +342,17 @@ public class Main {
             System.out.println("╚════════════════════════════════════╝");
             
             String service = getStringInput("Nome do serviço: ");
+            service = sanitizeInput(service);
+            if (!isValidServiceOrUsername(service)) {
+                System.out.println("\n❌ Nome de serviço inválido! Use apenas letras, números, ponto, traço e sublinhado (2-64 caracteres).");
+                return;
+            }
             String username = getStringInput("Nome de usuário: ");
+            username = sanitizeInput(username);
+            if (!isValidServiceOrUsername(username)) {
+                System.out.println("\n❌ Nome de usuário inválido! Use apenas letras, números, ponto, traço e sublinhado (2-64 caracteres).");
+                return;
+            }
             String password = getPasswordInput("Senha: ");
 
             if (breachChecker.isPasswordBreached(password)) {
@@ -339,6 +379,11 @@ public class Main {
             System.out.println("╚════════════════════════════════════╝");
             
             String service = getStringInput("Nome do serviço: ");
+            service = sanitizeInput(service);
+            if (!isValidServiceOrUsername(service)) {
+                System.out.println("\n❌ Nome de serviço inválido! Use apenas letras, números, ponto, traço e sublinhado (2-64 caracteres).");
+                return;
+            }
             PasswordEntry entry = mongoDBService.findByService(service, loggedUser.getId());
 
             if (entry == null) {
@@ -474,10 +519,44 @@ public class Main {
         }
     }
 
+    private static String sanitizeInput(String input) {
+        if (input == null) return null;
+        // Remove espaços extras e caracteres de controle
+        String sanitized = input.trim().replaceAll("[\n\r\t]", "");
+        // Remove caracteres potencialmente perigosos
+        sanitized = sanitized.replaceAll("[<>;]", "");
+        // Remove emojis e caracteres não ASCII
+        sanitized = sanitized.replaceAll("[^\\p{ASCII}]", "");
+        // Remove acentuação
+        sanitized = Normalizer.normalize(sanitized, Normalizer.Form.NFD).replaceAll("[^\\p{ASCII}]", "");
+        // Limita tamanho máximo (ex: 64 caracteres)
+        if (sanitized.length() > 64) sanitized = sanitized.substring(0, 64);
+        return sanitized;
+    }
+
+    private static boolean isValidEmail(String email) {
+        if (email == null) return false;
+        String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+        return Pattern.matches(emailRegex, email);
+    }
+
+    private static boolean isValidServiceOrUsername(String value) {
+        if (value == null || value.isEmpty()) return false;
+        // Apenas letras, números, pontos, traços e sublinhados
+        return value.matches("^[A-Za-z0-9._-]{2,64}$");
+    }
+
+    private static boolean isValidBackupCode(String code) {
+        if (code == null) return false;
+        // Exemplo: backup codes de 8 dígitos/letras
+        return code.matches("^[A-Za-z0-9]{6,12}$");
+    }
+
     private static String getStringInput(String prompt) {
         try {
             System.out.print(prompt);
-            return scanner.nextLine();
+            String input = scanner.nextLine();
+            return sanitizeInput(input);
         } catch (IllegalStateException e) {
             System.out.println("\n⚠️  Entrada interrompida. Encerrando...");
             cleanup();
