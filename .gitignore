@@ -44,4 +44,5 @@ node_modules/
 
 # Arquivos de configuração local
 application.properties
-application-local.properties 
+application-local.properties
+secure_key.dat
