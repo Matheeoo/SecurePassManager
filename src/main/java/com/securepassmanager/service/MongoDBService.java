@@ -6,13 +6,15 @@ import com.securepassmanager.model.PasswordEntry;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 public class MongoDBService {
-    private static final String CONNECTION_STRING = "mongodb://localhost:27017";
     private static final String DATABASE_NAME = "SecurePassManager";
     private static final String COLLECTION_NAME = "passwords";
     private static final String MASTER_COLLECTION = "master_password";
@@ -22,15 +24,73 @@ public class MongoDBService {
     private final MongoDatabase database;
     private final MongoCollection<Document> collection;
     private volatile boolean isClosed = false;
+    private final boolean isCloud;
 
     public MongoDBService() {
-        try {
-            mongoClient = MongoClients.create(CONNECTION_STRING);
-            database = mongoClient.getDatabase(DATABASE_NAME);
-            collection = database.getCollection(COLLECTION_NAME);
-        } catch (Exception e) {
-            throw new RuntimeException("Erro ao conectar ao MongoDB: " + e.getMessage(), e);
+        Properties props = new Properties();
+        String cloudUri = null;
+        String localUri = null;
+        try (FileInputStream fis = new FileInputStream("application.properties")) {
+            props.load(fis);
+            cloudUri = props.getProperty("mongodb.uri.cloud");
+            localUri = props.getProperty("mongodb.uri.local");
+        } catch (IOException e) {
+            System.err.println("Não foi possível ler application.properties. Usando padrão local.");
+            localUri = "mongodb://localhost:27017";
         }
+
+        MongoClient client = null;
+        MongoDatabase db = null;
+        MongoCollection<Document> coll = null;
+        boolean cloud = false;
+
+        // Tenta conectar na nuvem primeiro
+        if (cloudUri != null && !cloudUri.contains("<usuario>")) {
+            try {
+                client = MongoClients.create(cloudUri);
+                db = client.getDatabase(DATABASE_NAME);
+                coll = db.getCollection(COLLECTION_NAME);
+                db.runCommand(new Document("ping", 1));
+                cloud = true;
+                System.out.println("Conectado ao MongoDB Atlas (nuvem).");
+            } catch (Exception e) {
+                String msg = e.getMessage();
+                if (msg.contains("Authentication failed")) {
+                    System.out.println("Erro: Usuário ou senha do MongoDB Atlas incorretos.");
+                } else if (msg.contains("timed out") || msg.contains("Timeout")) {
+                    System.out.println("Erro: Timeout de conexão. Verifique sua internet ou se o IP está liberado no Atlas.");
+                } else if (msg.contains("not authorized")) {
+                    System.out.println("Erro: Usuário não tem permissão para acessar o banco.");
+                } else if (msg.contains("UnknownHostException")) {
+                    System.out.println("Erro: String de conexão inválida ou DNS do cluster incorreto.");
+                } else if (msg.contains("No suitable servers found")) {
+                    System.out.println("Erro: Não foi possível encontrar servidores MongoDB. Verifique a string de conexão e o status do cluster.");
+                } else {
+                    System.out.println("Erro ao conectar no Atlas: " + msg);
+                }
+                e.printStackTrace();
+                System.out.println("Falha ao conectar ao MongoDB Atlas. Tentando local...");
+            }
+        }
+        if (client == null) {
+            try {
+                client = MongoClients.create(localUri);
+                db = client.getDatabase(DATABASE_NAME);
+                coll = db.getCollection(COLLECTION_NAME);
+                db.runCommand(new Document("ping", 1));
+                System.out.println("Conectado ao MongoDB local.");
+            } catch (Exception ex) {
+                throw new RuntimeException("Não foi possível conectar ao MongoDB local nem à nuvem.", ex);
+            }
+        }
+        this.mongoClient = client;
+        this.database = db;
+        this.collection = coll;
+        this.isCloud = cloud;
+    }
+
+    public boolean isCloudConnection() {
+        return isCloud;
     }
 
     private void validateConnection() {
@@ -163,5 +223,32 @@ public class MongoDBService {
     protected void finalize() throws Throwable {
         close();
         super.finalize();
+    }
+
+    // Insere ou atualiza uma entrada de senha (upsert)
+    public void insertOrUpdatePasswordEntry(PasswordEntry entry) {
+        validateConnection();
+        Bson filter = Filters.and(
+            Filters.eq("service", entry.getService()),
+            Filters.eq("userId", entry.getUserId())
+        );
+        Document doc = new Document()
+                .append("title", entry.getTitle())
+                .append("service", entry.getService())
+                .append("username", entry.getUsername())
+                .append("password", entry.getPassword())
+                .append("userId", entry.getUserId())
+                .append("createdAt", entry.getCreatedAt().toString())
+                .append("updatedAt", entry.getUpdatedAt().toString());
+        collection.replaceOne(filter, doc, new com.mongodb.client.model.ReplaceOptions().upsert(true));
+    }
+
+    // Substitui todas as senhas de um usuário por uma nova lista
+    public void replaceAllPasswordEntries(String userId, List<PasswordEntry> entries) {
+        validateConnection();
+        collection.deleteMany(Filters.eq("userId", userId));
+        for (PasswordEntry entry : entries) {
+            insertPasswordEntry(entry);
+        }
     }
 } 
