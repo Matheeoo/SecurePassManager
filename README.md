@@ -15,6 +15,7 @@ Um gerenciador de senhas seguro e moderno desenvolvido em Java, oferecendo recur
   - Hashing bcrypt para senhas mestras
   - Proteção contra ataques de força bruta
   - Gerenciamento seguro de chaves de criptografia
+  - Sincronização bidirecional entre local e nuvem
 
 - 🔐 **Autenticação Avançada**
   - Autenticação de dois fatores (2FA) via TOTP
@@ -39,7 +40,7 @@ Um gerenciador de senhas seguro e moderno desenvolvido em Java, oferecendo recur
 
 - Java 17 ou superior
 - Maven 3.6 ou superior
-- MongoDB 4.4 ou superior (rodando localmente na porta 27017)
+- MongoDB 4.4 ou superior (local ou em nuvem)
 
 ### Instalação
 
@@ -49,12 +50,20 @@ Um gerenciador de senhas seguro e moderno desenvolvido em Java, oferecendo recur
    cd SecurePassManager
    ```
 
-2. Compile o projeto:
+2. Configure o MongoDB:
+   - Instale o MongoDB localmente ou use um serviço em nuvem
+   - Crie um arquivo `application.properties` na raiz do projeto com as seguintes configurações:
+     ```properties
+     mongodb.uri.local=mongodb://localhost:27017
+     mongodb.uri.cloud=sua_uri_mongodb_cloud
+     ```
+
+3. Compile o projeto:
    ```bash
    mvn clean install
    ```
 
-3. Execute o aplicativo:
+4. Execute o aplicativo:
    ```bash
    mvn exec:java -Dexec.mainClass="com.securepassmanager.Main"
    ```
@@ -87,7 +96,12 @@ O sistema utiliza as seguintes configurações padrão:
 - Banco de dados: `SecurePassManager`
 - Coleções: `users`, `passwords`, `master_password`
 
-Para personalizar estas configurações, crie um arquivo `application.properties` na raiz do projeto.
+Para personalizar estas configurações, crie um arquivo `application.properties` na raiz do projeto com as seguintes propriedades:
+
+```properties
+mongodb.uri.local=mongodb://localhost:27017
+mongodb.uri.cloud=sua_uri_mongodb_cloud
+```
 
 ## 🛡️ Segurança
 
@@ -102,6 +116,11 @@ Para personalizar estas configurações, crie um arquivo `application.properties
 - Códigos de backup para recuperação
 - Bloqueio temporário após tentativas falhas
 - Validação de força de senhas
+
+### Armazenamento
+- Sincronização bidirecional entre local e nuvem
+- Criptografia de dados em trânsito
+- Backup automático de dados
 
 ## 🤝 Contribuindo
 
