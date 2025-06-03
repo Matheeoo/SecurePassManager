@@ -1,10 +1,13 @@
 package com.securepassmanager.model;
 
+import java.util.List;
+
 public class User {
     private String id;
     private String email;
     private String passwordHash;
     private String totpSecret;
+    private List<String> backupCodes;
 
     public User() {}
 
@@ -44,5 +47,13 @@ public class User {
 
     public void setTotpSecret(String totpSecret) {
         this.totpSecret = totpSecret;
+    }
+
+    public List<String> getBackupCodes() {
+        return backupCodes;
+    }
+
+    public void setBackupCodes(List<String> backupCodes) {
+        this.backupCodes = backupCodes;
     }
 } 
