@@ -99,9 +99,23 @@ O sistema utiliza as seguintes configurações padrão:
 Para personalizar estas configurações, crie um arquivo `application.properties` na raiz do projeto com as seguintes propriedades:
 
 ```properties
+# Configuração do MongoDB local
 mongodb.uri.local=mongodb://localhost:27017
-mongodb.uri.cloud=sua_uri_mongodb_cloud
+
+# Configuração do MongoDB Atlas (nuvem)
+# Substitua <usuario>, <senha> e <cluster> pelos seus dados
+mongodb.uri.cloud=mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
 ```
+
+Exemplo de URI do MongoDB Atlas:
+```properties
+mongodb.uri.cloud=mongodb+srv://usuario:senha@cluster0.sy7gd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+```
+
+> ⚠️ **Importante**: 
+> - O arquivo `application.properties` está no `.gitignore` por segurança
+> - Nunca compartilhe suas credenciais do MongoDB Atlas
+> - Mantenha uma cópia segura das suas credenciais
 
 ## 🛡️ Segurança
 
